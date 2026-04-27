@@ -153,6 +153,112 @@ body {
 }
 @keyframes blink { 50% { opacity: 0; } }
 
+/* Header */
+#main-header {
+  background-image: linear-gradient(to right, #cc0000, #aa0000);
+  padding: 14px 20px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  position: sticky;
+  top: 0;
+  z-index: 100;
+  box-shadow: 0 4px 20px rgba(0,0,0,0.4);
+}
+.header-left { display: flex; align-items: center; gap: 12px; }
+
+/* Mini Pokéball in header */
+.small-pokeball {
+  width: 32px; height: 32px;
+  border-radius: 50%;
+  background: linear-gradient(to bottom, #fff 50%, #111 50%);
+  border: 3px solid #fff;
+  position: relative;
+  flex-shrink: 0;
+}
+.small-pokeball::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  top: 50%; left: 50%;
+  transform: translate(-50%, -50%);
+  width: 10px; height: 10px;
+  background: #fff;
+  border: 2px solid #111;
+  border-radius: 50%;
+}
+.header-title {
+  font-family: 'Press Start 2P', monospace;
+  font-size: clamp(10px, 3vw, 16px);
+  color: #fff;
+  text-shadow: 2px 2px 0 rgba(0,0,0,0.3);
+}
+.caught-badge {
+  background: rgba(0,0,0,0.25);
+  padding: 6px 14px;
+  border-radius: 20px;
+  font-weight: 800;
+  font-size: 13px;
+  color: #fff;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+#caught-count { color: var(--accent); font-size: 15px; }
+
+.oak-message {
+  display: flex;
+  align-items: flex-start;
+  gap: 14px;
+  padding: 16px 20px;
+  background: var(--card-bg);
+  border-bottom: 2px solid rgba(255,255,255,0.06);
+}
+.oak-avatar {
+  width: 44px; height: 44px;
+  border-radius: 50%;
+  border: 2px solid var(--accent);
+  object-fit: cover;
+  flex-shrink: 0;
+  background: #1a2a4a;
+}
+.oak-bubble {
+  background: var(--dark);
+  border: 2px solid rgba(255,255,255,0.1);
+  border-radius: 0 12px 12px 12px;
+  padding: 10px 14px;
+  font-size: 13px;
+  color: var(--text);
+  flex: 1;
+  position: relative;
+}
+.oak-bubble::before {
+  content: '';
+  position: absolute;
+  left: -10px; top: 10px;
+  border: 6px solid transparent;
+  border-right-color: rgba(255,255,255,0.1);
+}
+#oak-text { line-height: 1.5; }
+
+/* Battle flash */
+.battle-flash {
+  position: fixed;
+  inset: 0;
+  background: #fff;
+  opacity: 0;
+  pointer-events: none;
+  z-index: 9000;
+}
+.battle-flash.flash {
+  animation: battleFlash 0.4s ease forwards;
+}
+@keyframes battleFlash {
+  0%   { opacity: 0; }
+  20%  { opacity: 0.8; }
+  100% { opacity: 0; }
+}
+
 </style>
 
 </head>
@@ -174,6 +280,39 @@ body {
       <p class="blink-text">— The Digital Adventure —</p>
     </div>
   </div>
+
+/* Main app */
+<div id="app" class="hidden">
+
+/* Sticky header */
+  <header id="main-header">
+    <div class="header-left">
+      <div class="small-pokeball"></div>
+      <span class="header-title">POKÉDEX</span>
+    </div>
+    <div class="header-right">
+      <div class="caught-badge">
+        <span>📖</span>
+        <span id="caught-count">0</span> seen
+      </div>
+    </div>
+  </header>
+
+/* johannas message */
+  <div class="oak-message" id="oak-message">
+    <img
+      class="oak-avatar"
+      src="https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/other/official-artwork/25.png"
+      alt="Pikachu"
+    />
+    <div class="oak-bubble">
+      <p id="oak-text">Welcome! This is your Pokédex. Search for a Pokémon by name or number!</p>
+    </div>
+  </div>
+
+</div>
+
+<div id="battle-flash" class="battle-flash"></div>
 
   <script src="app.js"></script>
 </body>
