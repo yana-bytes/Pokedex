@@ -294,3 +294,268 @@ function renderTypeFilters() {
     typeFilters.appendChild(btn);
   });
 }
+
+/* ------------------------------------------------
+   MODAL: Open the detail popup for a given Pokémon ID
+------------------------------------------------ */
+
+async function openModal(pokemonId) {
+  currentModalId = pokemonId;
+
+  // Show the modal immediately with placeholder content
+  modalOverlay.classList.remove('hidden');
+  document.getElementById('modal-name').textContent     = 'Loading...';
+  document.getElementById('modal-id-chip').textContent  = `#${padId(pokemonId)}`;
+  document.getElementById('modal-img').src              = getSpriteUrl(pokemonId);
+  document.getElementById('modal-types').innerHTML      = '';
+  document.getElementById('modal-info-grid').innerHTML  = '';
+  document.getElementById('modal-weaknesses').innerHTML = '';
+  document.getElementById('modal-stats').innerHTML      = '';
+  document.getElementById('modal-moves').innerHTML      = '';
+  
+  // Disable nav buttons until data loads
+  prevBtn.disabled = true;
+  nextBtn.disabled = true;
+
+  try {
+    // Fetch Pokémon data and species data at the same time
+    const [pokemonData, speciesData] = await Promise.all([
+      fetch(`https://pokeapi.co/api/v2/pokemon/${pokemonId}`).then(r => r.json()),
+      fetch(`https://pokeapi.co/api/v2/pokemon-species/${pokemonId}`).then(r => r.json()),
+    ]);
+
+    // English category (e.g. "Seed Pokémon")
+    const genusObj   = speciesData.genera?.find(g => g.language.name === 'en');
+    const category   = genusObj ? genusObj.genus : 'Unknown';
+
+    // English Pokédex description
+    const flavorEntry = speciesData.flavor_text_entries?.find(e => e.language.name === 'en');
+    const description = flavorEntry
+      ? flavorEntry.flavor_text.replace(/\f|\n/g, ' ')
+      : 'No description available.';
+
+    // Types, weaknesses, and colors
+    const typeNames   = pokemonData.types.map(t => t.type.name);
+    const weaknesses  = getWeaknesses(typeNames);
+    const bgColor     = TYPE_COLORS[typeNames[0]] || '#888';
+
+    // Fill hero section
+    document.getElementById('modal-hero').style.background =
+      `linear-gradient(135deg, ${bgColor}33 0%, transparent 70%)`;
+    document.getElementById('modal-bg-circle').style.background = bgColor;
+    document.getElementById('modal-name').textContent    = capitalize(pokemonData.name);
+    document.getElementById('modal-id-chip').textContent = `#${padId(pokemonData.id)}`;
+
+    // Fill type badges
+    const typesDiv = document.getElementById('modal-types');
+    typesDiv.innerHTML = '';
+    typeNames.forEach(t => typesDiv.appendChild(makeTypeBadge(t)));
+
+    // Fill info grid
+    const infoGrid = document.getElementById('modal-info-grid');
+    infoGrid.innerHTML = '';
+    const infoItems = [
+      { label: 'Category',    value: category },
+      { label: 'Height',      value: `${(pokemonData.height / 10).toFixed(1)} m` },
+      { label: 'Weight',      value: `${(pokemonData.weight / 10).toFixed(1)} kg` },
+      { label: 'Base Exp',    value: pokemonData.base_experience ?? '—' },
+      { label: 'Abilities',   value: pokemonData.abilities.map(a => capitalize(a.ability.name)).join(', ') },
+      { label: 'Description', value: description },
+    ];
+    infoItems.forEach(item => {
+      const cell = document.createElement('div');
+      cell.className = 'info-cell';
+      if (item.label === 'Description' || item.label === 'Abilities') {
+        cell.style.gridColumn = '1 / -1';
+      }
+      cell.innerHTML = `
+        <div class="info-cell-label">${item.label}</div>
+        <div class="info-cell-value" style="font-size:${item.label === 'Description' ? '12px' : ''}">
+          ${item.value}
+        </div>
+      `;
+      infoGrid.appendChild(cell);
+    });
+
+    // Fill weaknesses
+    const weakDiv = document.getElementById('modal-weaknesses');
+    weakDiv.innerHTML = '';
+    if (weaknesses.length === 0) {
+      weakDiv.innerHTML = '<span style="color:var(--muted)">None</span>';
+    } else {
+      weaknesses.forEach(w => weakDiv.appendChild(makeTypeBadge(w)));
+    }
+
+    // Fill stat bars
+    const statsDiv = document.getElementById('modal-stats');
+    statsDiv.innerHTML = '';
+    pokemonData.stats.forEach(s => {
+      const value = s.base_stat;
+      const pct   = Math.min((value / 150) * 100, 100);
+      const color = getStatColor(value);
+      const row   = document.createElement('div');
+      row.className = 'stat-row';
+      row.innerHTML = `
+        <div class="stat-label">${s.stat.name.replace('special-', 'sp. ')}</div>
+        <div class="stat-bar-bg">
+          <div class="stat-bar-fill" style="width:0%; background:${color}"></div>
+        </div>
+        <div class="stat-value">${value}</div>
+      `;
+      statsDiv.appendChild(row);
+      requestAnimationFrame(() => {
+        requestAnimationFrame(() => {
+          row.querySelector('.stat-bar-fill').style.width = `${pct}%`;
+        });
+      });
+    });
+
+    // Fill moves (first 10)
+    const movesDiv = document.getElementById('modal-moves');
+    movesDiv.innerHTML = '';
+    pokemonData.moves.slice(0, 10).forEach((m, i) => {
+      const chip = document.createElement('div');
+      chip.className = 'move-chip';
+      chip.style.animationDelay = `${i * 50}ms`;
+      chip.textContent = capitalize(m.move.name.replace(/-/g, ' '));
+      movesDiv.appendChild(chip);
+    });
+
+    // Set up Prev / Next buttons
+    prevBtn.disabled = pokemonId <= 1;
+    nextBtn.disabled = false;
+    updateNavButtonNames(pokemonId);
+
+    showOakMessage(`${capitalize(pokemonData.name)} — ${description.substring(0, 80)}...`);
+
+  } catch (error) {
+    console.error('Error loading Pokémon detail:', error);
+    document.getElementById('modal-name').textContent = 'Error loading data!';
+  }
+}
+
+// Update the Previous / Next button labels with the neighbouring Pokémon names
+function updateNavButtonNames(currentId) {
+  document.getElementById('prev-name').textContent = 'Previous';
+  document.getElementById('next-name').textContent = 'Next';
+
+  if (currentId > 1) {
+    prevBtn.disabled = false;
+    const prev = allPokemons.find(p => p.id === currentId - 1);
+    if (prev) document.getElementById('prev-name').textContent = capitalize(prev.name);
+  } else {
+    prevBtn.disabled = true;
+  }
+
+  const next = allPokemons.find(p => p.id === currentId + 1);
+  if (next) document.getElementById('next-name').textContent = capitalize(next.name);
+}
+
+
+// Close the modal
+function closeModal() {
+  modalOverlay.classList.add('hidden');
+  currentModalId = null;
+}
+
+/* ------------------------------------------------
+   EVENT LISTENERS: Connect UI interactions to functions
+------------------------------------------------ */
+
+//PRESS START button
+startBtn.addEventListener('click', () => {
+  doBattleFlash();
+  introScreen.classList.add('fade-out');
+  setTimeout(() => {
+    introScreen.style.display = 'none';
+    appDiv.classList.remove('hidden');
+    fetchPokemons(); // load the first 10 Pokémon
+  }, 600);
+});
+
+// Search: re-render as the user types
+searchInput.addEventListener('input', () => {
+  clearSearch.style.display = searchInput.value ? 'block' : 'none';
+  renderCards();
+});
+
+// Clear (✕) button: reset the search
+clearSearch.addEventListener('click', () => {
+  searchInput.value = '';
+  clearSearch.style.display = 'none';
+  searchInput.focus();
+  renderCards();
+});
+
+// Sort dropdown: re-render when changed
+sortSelect.addEventListener('change', renderCards);
+
+// Type filter buttons: filter by the clicked type
+typeFilters.addEventListener('click', (event) => {
+  const btn = event.target.closest('.type-filter-btn');
+  if (!btn) return;
+  activeFilter = btn.dataset.type;
+  document.querySelectorAll('.type-filter-btn').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+  renderCards();
+  showOakMessage(
+    activeFilter === 'all'
+      ? 'Showing all Pokémon!'
+      : `Showing ${capitalize(activeFilter)}-type Pokémon!`
+  );
+});
+
+//Load More button
+loadMoreBtn.addEventListener('click', () => fetchPokemons());
+
+//close with the ✕ button
+modalClose.addEventListener('click', closeModal);
+
+//close by clicking the dark backdrop
+modalOverlay.addEventListener('click', (event) => {
+  if (event.target === modalOverlay) closeModal();
+});
+
+//Previous Pokémon button
+prevBtn.addEventListener('click', () => {
+  if (currentModalId > 1) {
+    doBattleFlash();
+    setTimeout(() => openModal(currentModalId - 1), 150);
+  }
+});
+
+//Next Pokémon button
+nextBtn.addEventListener('click', () => {
+  doBattleFlash();
+  setTimeout(() => openModal(currentModalId + 1), 150);
+});
+
+//tab switching (Info / Stats / Moves)
+document.querySelectorAll('.tab-btn').forEach(btn => {
+  btn.addEventListener('click', () => {
+    document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    document.querySelectorAll('.tab-panel').forEach(p => p.classList.add('hidden'));
+    document.getElementById(`tab-${btn.dataset.tab}`).classList.remove('hidden');
+  });
+});
+
+//Keyboard shortcuts
+document.addEventListener('keydown', (event) => {
+  // Escape: close the modal
+  if (event.key === 'Escape') {
+    closeModal();
+  }
+ 
+  // Arrow keys: navigate Pokémon while the modal is open
+  if (currentModalId !== null) {
+    if (event.key === 'ArrowLeft' && currentModalId > 1) {
+      doBattleFlash();
+      setTimeout(() => openModal(currentModalId - 1), 150);
+    }
+    if (event.key === 'ArrowRight') {
+      doBattleFlash();
+      setTimeout(() => openModal(currentModalId + 1), 150);
+    }
+  }
+});
