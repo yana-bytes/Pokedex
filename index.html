@@ -322,6 +322,136 @@ body {
 .type-filter-btn:hover { border-color: var(--accent); color: var(--accent); }
 .type-filter-btn.active { background: var(--accent); border-color: var(--accent); color: #111; }
 
+/* Loading spinner */
+.loading-msg { text-align: center; padding: 60px 20px; color: var(--muted); font-size: 14px; }
+.pokeball-spinner {
+  width: 60px; height: 60px;
+  margin: 0 auto 20px;
+  border-radius: 50%;
+  border: 5px solid rgba(255,255,255,0.1);
+  overflow: hidden; position: relative;
+  animation: spin 1s linear infinite;
+}
+@keyframes spin { to { transform: rotate(360deg); } }
+.spin-top { background: #cc0000; height: 26px; }
+.spin-bot { background: #222;    height: 26px; }
+.spin-mid {
+  position: absolute;
+  top: 50%; left: 0; right: 0;
+  transform: translateY(-50%);
+  height: 8px; background: #fff;
+  display: flex; align-items: center; justify-content: center;
+}
+.spin-btn { width: 14px; height: 14px; border-radius: 50%; background: #fff; border: 3px solid #333; }
+
+/* No results */
+.no-results { text-align: center; padding: 60px 20px; color: var(--muted); }
+.no-results-icon { font-size: 52px; display: block; margin-bottom: 12px; }
+.no-results p { font-size: 18px; font-weight: 700; margin-bottom: 6px; }
+.no-results small { font-size: 13px; }
+
+/* Card grid */
+#pokemon-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(170px, 1fr));
+  gap: 18px;
+  padding: 20px;
+}
+.pokemon-card {
+  background: var(--card-bg);
+  border-radius: var(--radius);
+  padding: 18px 14px 14px;
+  cursor: pointer;
+  text-align: center;
+  border: 2px solid transparent;
+  position: relative;
+  overflow: hidden;
+  transition: transform 0.2s, border-color 0.2s, box-shadow 0.2s;
+  animation: cardAppear 0.35s ease both;
+}
+@keyframes cardAppear {
+  from { opacity: 0; transform: translateY(20px) scale(0.95); }
+  to   { opacity: 1; transform: translateY(0) scale(1); }
+}
+.pokemon-card:hover {
+  transform: translateY(-8px) scale(1.02);
+  border-color: var(--accent);
+  box-shadow: 0 12px 40px rgba(255,214,0,0.2);
+}
+.card-bg-id {
+  position: absolute; bottom: -4px; right: 8px;
+  font-size: 56px; font-weight: 900;
+  color: rgba(255,255,255,0.04);
+  pointer-events: none; user-select: none;
+  font-family: 'Press Start 2P', monospace;
+}
+.card-type-stripe {
+  position: absolute; top: 0; left: 0; right: 0;
+  height: 4px;
+  border-radius: var(--radius) var(--radius) 0 0;
+}
+.card-img {
+  width: 96px; height: 96px;
+  object-fit: contain;
+  transition: transform 0.3s;
+  filter: drop-shadow(0 4px 8px rgba(0,0,0,0.4));
+}
+.pokemon-card:hover .card-img { transform: scale(1.12) translateY(-4px); }
+.card-id { font-size: 11px; color: var(--muted); margin-top: 6px; font-weight: 700; }
+.card-name { font-size: 15px; font-weight: 900; text-transform: capitalize; margin: 3px 0 10px; }
+
+/* Type badges */
+.types-row { display: flex; flex-wrap: wrap; justify-content: center; gap: 5px; }
+.type-badge {
+  font-size: 10px; font-weight: 800;
+  padding: 3px 10px; border-radius: 20px;
+  text-transform: uppercase; letter-spacing: 0.5px;
+  color: #fff;
+}
+.type-normal   { background: #9099A1; }
+.type-fire     { background: #e25822; }
+.type-water    { background: #4A90D9; }
+.type-grass    { background: #5a9e3a; }
+.type-electric { background: #F8D030; color: #333; }
+.type-ice      { background: #61c4c4; color: #111; }
+.type-fighting { background: #C03028; }
+.type-poison   { background: #8B3FA8; }
+.type-ground   { background: #d4a637; color: #111; }
+.type-flying   { background: #7777cc; }
+.type-psychic  { background: #dd3377; }
+.type-bug      { background: #7a9c1e; }
+.type-rock     { background: #9c8a44; }
+.type-ghost    { background: #4c4488; }
+.type-dragon   { background: #5522ee; }
+.type-dark     { background: #5a4030; }
+.type-steel    { background: #8888aa; color: #111; }
+.type-fairy    { background: #dd88bb; color: #111; }
+
+/* Load More button */
+.load-more-area { text-align: center; padding: 12px 0 48px; }
+.load-more-btn {
+  padding: 14px 40px;
+  background: var(--red); color: #fff;
+  font-family: 'Press Start 2P', monospace;
+  font-size: 9px; border: none;
+  border-radius: 10px; cursor: pointer;
+  box-shadow: 0 5px 0 #880000;
+  transition: transform 0.1s, box-shadow 0.1s;
+  display: inline-flex; align-items: center; gap: 10px;
+  letter-spacing: 1px;
+}
+.load-more-btn:hover  { transform: translateY(-3px); box-shadow: 0 8px 0 #880000; }
+.load-more-btn:active { transform: translateY(3px);  box-shadow: 0 2px 0 #880000; }
+
+/* Scrollbar */
+::-webkit-scrollbar { width: 8px; }
+::-webkit-scrollbar-track { background: var(--darker); }
+::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.15); border-radius: 4px; }
+
+@media (max-width: 480px) {
+  #pokemon-grid { grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); gap: 12px; padding: 12px; }
+}
+
 /* Battle flash */
 .battle-flash {
   position: fixed;
@@ -416,6 +546,34 @@ body {
  /* Type filter buttons */
 <div class="type-filters" id="type-filters">
   <button class="type-filter-btn active" data-type="all">All</button>
+</div>
+
+/* Loading spinner */
+<div id="loading-msg" class="loading-msg">
+  <div class="pokeball-spinner">
+    <div class="spin-top"></div>
+    <div class="spin-mid"><div class="spin-btn"></div></div>
+    <div class="spin-bot"></div>
+  </div>
+  <p>Loading Pokémon data...</p>
+</div>
+
+/* No results message */
+<div id="no-results" class="no-results hidden">
+  <span class="no-results-icon">😵</span>
+  <p>No Pokémon found!</p>
+  <small>Try a different name, ID, or type filter.</small>
+</div>
+
+/* Card Grid */
+<div id="pokemon-grid"></div>
+
+/* Load More Button */
+<div class="load-more-area" id="load-more-area">
+  <button id="load-more-btn" class="load-more-btn">
+    <span>Load 10 More Pokémon</span>
+    <span class="load-icon">▼</span>
+  </button>
 </div>
 
 <div id="battle-flash" class="battle-flash"></div>
