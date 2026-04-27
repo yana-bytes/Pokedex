@@ -1,0 +1,64 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Pokédex </title>
+  <!--
+    Google Fonts:
+    "Press Start 2P" = retro pixel font (for headings, titles)
+    "Nunito"         = for body text
+  -->
+  <link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&family=Nunito:wght@400;600;700;800;900&display=swap" rel="stylesheet"/>
+ 
+  <style>
+ 
+/* ------------------------------------------------
+   CSS VARIABLES 
+------------------------------------------------ */
+:root {
+  --red:       #cc0000;
+  --red-dark:  #aa0000;
+  --dark:      #1a1a2e;
+  --darker:    #0f0f1a;
+  --card-bg:   #16213e;
+  --card2:     #0d1b35;
+  --accent:    #ffd700;
+  --accent2:   #ffaa00;
+  --text:      #e8eaf0;
+  --muted:     #7a8599;
+  --white:     #ffffff;
+  --radius:    14px;
+  --shadow:    0 8px 32px rgba(0,0,0,0.5);
+}
+ 
+/* ------------------------------------------------
+   RESET 
+------------------------------------------------ */
+*, *::before, *::after {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+ 
+/* ------------------------------------------------
+   BODY
+------------------------------------------------ */
+body {
+  background-color: var(--darker);
+  color: var(--text);
+  font-family: 'Nunito', sans-serif;
+  min-height: 100vh;
+  background-image: radial-gradient(circle, rgba(255,255,255,0.03) 1px, transparent 1px);
+  background-size: 28px 28px;
+  overflow-x: hidden;
+}
+ 
+.hidden { display: none !important; }
+</style>
+</head>
+<body>
+
+  <script src="app.js"></script>
+</body>
+</html>
