@@ -319,8 +319,17 @@ body {
   transition: all 0.2s;
   white-space: nowrap;
 }
-.type-filter-btn:hover { border-color: var(--accent); color: var(--accent); }
-.type-filter-btn.active { background: var(--accent); border-color: var(--accent); color: #111; }
+
+.type-filter-btn:hover {
+  border-color: var(--accent);
+  color: var(--accent);
+}
+
+.type-filter-btn.active {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: #111;
+}
 
 /* Loading spinner */
 .loading-msg { text-align: center; padding: 60px 20px; color: var(--muted); font-size: 14px; }
@@ -396,9 +405,24 @@ body {
   transition: transform 0.3s;
   filter: drop-shadow(0 4px 8px rgba(0,0,0,0.4));
 }
-.pokemon-card:hover .card-img { transform: scale(1.12) translateY(-4px); }
-.card-id { font-size: 11px; color: var(--muted); margin-top: 6px; font-weight: 700; }
-.card-name { font-size: 15px; font-weight: 900; text-transform: capitalize; margin: 3px 0 10px; }
+.pokemon-card:hover .card-img {
+  transform: scale(1.12) translateY(-4px);
+}
+ 
+.card-id {
+  font-size: 11px;
+  color: var(--muted);
+  margin-top: 6px;
+  font-weight: 700;
+}
+ 
+.card-name {
+  font-size: 15px;
+  font-weight: 900;
+  text-transform: capitalize;
+  margin: 3px 0 10px;
+  color: var(--text);
+}
 
 /* Type badges */
 .types-row { display: flex; flex-wrap: wrap; justify-content: center; gap: 5px; }
@@ -442,6 +466,291 @@ body {
 }
 .load-more-btn:hover  { transform: translateY(-3px); box-shadow: 0 8px 0 #880000; }
 .load-more-btn:active { transform: translateY(3px);  box-shadow: 0 2px 0 #880000; }
+.load-icon { font-size: 14px; }
+
+/* Modal overlay (dark blurred background) */
+.modal-overlay {
+  position: fixed; inset: 0;
+  background: rgba(0,0,0,0.82);
+  z-index: 500;
+  display: flex; align-items: center; justify-content: center;
+  padding: 16px;
+  backdrop-filter: blur(6px);
+}
+
+/* The actual white/dark popup box */
+.modal-box {
+  background: var(--card-bg);
+  border-radius: 20px;
+  padding: 0 0 24px;
+  max-width: 480px; width: 100%;
+  max-height: 90vh; overflow-y: auto;
+  position: relative;
+  box-shadow: var(--shadow);
+  border: 2px solid rgba(255,255,255,0.1);
+  animation: modalIn 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+@keyframes modalIn {
+  from { opacity: 0; transform: scale(0.8) translateY(30px); }
+  to   { opacity: 1; transform: scale(1) translateY(0); }
+}
+
+/* Close button */
+.modal-close-btn {
+  position: absolute; top: 14px; right: 14px;
+  background: rgba(0,0,0,0.3); border: none;
+  color: #fff; font-size: 18px;
+  width: 34px; height: 34px;
+  border-radius: 50%; cursor: pointer; z-index: 10;
+  transition: background 0.2s;
+}
+.modal-close-btn:hover { background: rgba(0,0,0,0.6); }
+
+/* Pokémon hero area (image + glowing background circle) */
+.modal-hero {
+  position: relative;
+  padding: 36px 20px 20px;
+  text-align: center;
+  overflow: hidden;
+}
+
+.modal-bg-circle {
+  position: absolute;
+  width: 200px;
+  height: 200px;
+  border-radius: 50%;
+  top: 50%; left: 50%;
+  transform: translate(-50%, -50%);
+  opacity: 0.15;
+}
+ 
+.modal-pokemon-img {
+  width: 150px;
+  height: 150px;
+  object-fit: contain;
+  position: relative;
+  filter: drop-shadow(0 8px 24px rgba(0,0,0,0.5));
+  animation: floatImg 4s ease-in-out infinite;
+}
+
+@keyframes floatImg {
+  0%, 100% { transform: translateY(0) rotate(-1deg); }
+  50%       { transform: translateY(-10px) rotate(1deg); }
+}
+
+.modal-id-chip {
+  position: absolute;
+  bottom: 12px; left: 20px;
+  background: rgba(0,0,0,0.4);
+  border-radius: 20px;
+  padding: 4px 12px;
+  font-size: 12px;
+  font-weight: 800;
+  color: var(--muted);
+}
+
+.modal-name {
+  font-family: 'Press Start 2P', monospace;
+  font-size: clamp(13px, 4vw, 18px);
+  text-align: center;
+  text-transform: capitalize;
+  padding: 0 20px;
+  margin-bottom: 10px;
+  line-height: 1.4;
+}
+
+.modal-types {
+  display: flex;
+  justify-content: center;
+  gap: 8px;
+  padding: 0 20px;
+  margin-bottom: 18px;
+}
+
+.modal-types .type-badge {
+  font-size: 12px;
+  padding: 5px 16px;
+}
+
+/* Tabs */
+.modal-tabs {
+  display: flex;
+  border-bottom: 2px solid rgba(255,255,255,0.08);
+  padding: 0 16px;
+  gap: 4px;
+}
+
+.tab-btn {
+  flex: 1;
+  padding: 10px 6px;
+  background: none;
+  border: none;
+  color: var(--muted);
+  font-family: 'Nunito', sans-serif;
+  font-weight: 800;
+  font-size: 13px;
+  cursor: pointer;
+  border-bottom: 3px solid transparent;
+  margin-bottom: -2px;
+  transition: color 0.2s, border-color 0.2s;
+}
+
+.tab-btn:hover { color: var(--text); }
+.tab-btn.active { color: var(--accent); border-bottom-color: var(--accent); }
+.tab-panel { padding: 18px 20px 0; }
+
+/* Info grid */
+.info-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+  margin-bottom: 20px;
+}
+ 
+.info-cell {
+  background: var(--card2);
+  border-radius: 10px;
+  padding: 10px 14px;
+}
+ 
+.info-cell-label {
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  color: var(--muted);
+  font-weight: 700;
+  margin-bottom: 3px;
+}
+ 
+.info-cell-value {
+  font-size: 15px;
+  font-weight: 800;
+  text-transform: capitalize;
+  color: var(--text);
+}
+
+/* Weaknesses */
+.weakness-section { margin-top: 4px; }
+.section-label {
+  font-size: 11px;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  color: var(--muted);
+  margin-bottom: 10px;
+}
+
+.weakness-badges {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+/* Stat bars */
+.stat-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 10px;
+}
+ 
+.stat-label {
+  width: 120px;
+  font-size: 12px;
+  color: var(--muted);
+  text-align: right;
+  text-transform: capitalize;
+  flex-shrink: 0;
+}
+ 
+.stat-bar-bg {
+  flex: 1;
+  height: 10px;
+  background: rgba(255,255,255,0.08);
+  border-radius: 20px;
+  overflow: hidden;
+}
+ 
+.stat-bar-fill {
+  height: 100%;
+  border-radius: 20px;
+  /* Width animates in via JavaScript */
+  transition: width 0.7s cubic-bezier(0.22, 1, 0.36, 1);
+}
+ 
+.stat-value {
+  width: 36px;
+  font-size: 13px;
+  font-weight: 800;
+  text-align: right;
+  flex-shrink: 0;
+}
+
+/* Moves */
+.moves-note {
+  font-size: 12px;
+  color: var(--muted);
+  margin-bottom: 12px;
+}
+ 
+.moves-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+ 
+.move-chip {
+  background: var(--card2);
+  border: 1px solid rgba(255,255,255,0.1);
+  border-radius: 8px;
+  padding: 6px 12px;
+  font-size: 13px;
+  font-weight: 700;
+  text-transform: capitalize;
+  color: var(--text);
+  animation: chipIn 0.3s ease both;
+}
+
+@keyframes chipIn {
+  from { opacity: 0; transform: scale(0.8); }
+  to   { opacity: 1; transform: scale(1); }
+}
+
+/* Prev / Next buttons */
+.modal-nav {
+  display: flex;
+  gap: 12px;
+  padding: 20px 20px 0;
+}
+ 
+.nav-btn {
+  flex: 1;
+  padding: 12px;
+  background: var(--card2);
+  border: 2px solid rgba(255,255,255,0.1);
+  border-radius: 10px;
+  color: var(--text);
+  font-family: 'Nunito', sans-serif;
+  font-weight: 800;
+  font-size: 13px;
+  cursor: pointer;
+  transition: background 0.2s, border-color 0.2s;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  text-transform: capitalize;
+}
+
+.nav-btn:hover:not(:disabled) {
+  background: rgba(255,255,255,0.1);
+  border-color: var(--accent);
+}
+
+.nav-btn:disabled {
+  opacity: 0.3;
+  cursor: not-allowed;
+}
 
 /* Scrollbar */
 ::-webkit-scrollbar { width: 8px; }
@@ -575,6 +884,63 @@ body {
     <span class="load-icon">▼</span>
   </button>
 </div>
+
+ /* Detail Screen */
+<div id="modal-overlay" class="modal-overlay hidden">
+  <div id="modal-box" class="modal-box">
+
+    <button id="modal-close" class="modal-close-btn">✕</button>
+
+     /* Hero big image */
+    <div class="modal-hero" id="modal-hero">
+      <div class="modal-bg-circle" id="modal-bg-circle"></div>
+      <img id="modal-img" src="" alt="Pokémon" class="modal-pokemon-img"/>
+      <div class="modal-id-chip" id="modal-id-chip">#001</div>
+    </div>
+
+    <h2 id="modal-name" class="modal-name">Bulbasaur</h2>
+    <div id="modal-types" class="modal-types"></div>
+
+     /* Tabs */
+    <div class="modal-tabs">
+      <button class="tab-btn active" data-tab="info">📋 Info</button>
+      <button class="tab-btn" data-tab="stats">📊 Stats</button>
+      <button class="tab-btn" data-tab="moves">⚡ Moves</button>
+    </div>
+
+     /* Tab Info */
+    <div class="tab-panel" id="tab-info">
+      <div class="info-grid" id="modal-info-grid"></div>
+      <div class="weakness-section">
+        <div class="section-label">⚠️ Weaknesses</div>
+        <div id="modal-weaknesses" class="weakness-badges"></div>
+      </div>
+    </div>
+
+     /* Tab Stats */
+    <div class="tab-panel hidden" id="tab-stats">
+      <div id="modal-stats"></div>
+    </div>
+
+     /* Tab Moves */
+    <div class="tab-panel hidden" id="tab-moves">
+      <p class="moves-note">First 10 learnable moves:</p>
+      <div id="modal-moves" class="moves-list"></div>
+    </div>
+
+    /* Previous / Next navigation */
+    <div class="modal-nav">
+      <button id="prev-btn" class="nav-btn">
+        <span>◀</span> <span id="prev-name">Previous</span>
+      </button>
+      <button id="next-btn" class="nav-btn">
+        <span id="next-name">Next</span> <span>▶</span>
+      </button>
+    </div>
+
+  </div>
+</div>
+
 
 <div id="battle-flash" class="battle-flash"></div>
 
