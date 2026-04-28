@@ -557,10 +557,30 @@ function updateNavButtonNames(currentId) {
 }
 
 
-// Close the modal
+// Close the modal.
 function closeModal() {
   modalOverlay.classList.add('hidden');
   currentModalId = null;
+  isShiny        = false;
+}
+
+/* ------------------------------------------------
+   SHINY TOGGLE
+------------------------------------------------ */
+function toggleShiny() {
+  const img = document.getElementById('modal-img');
+  isShiny = !isShiny; 
+ 
+  if (isShiny) {
+    img.src = getShinyUrl(currentModalId);
+    shinyBtn.classList.add('shiny-on');
+    shinyBtn.textContent = '✨ Shiny ON';
+    showOakMessage('Whoa! A shiny Pokémon! How rare!');
+  } else {
+    img.src = getSpriteUrl(currentModalId);
+    shinyBtn.classList.remove('shiny-on');
+    shinyBtn.textContent = '✨ Shiny';
+  }
 }
 
 /* ------------------------------------------------
@@ -599,31 +619,73 @@ sortSelect.addEventListener('change', renderCards);
 typeFilters.addEventListener('click', (event) => {
   const btn = event.target.closest('.type-filter-btn');
   if (!btn) return;
+
   activeFilter = btn.dataset.type;
+
   document.querySelectorAll('.type-filter-btn').forEach(b => b.classList.remove('active'));
   btn.classList.add('active');
+
+  playClick();
   renderCards();
   showOakMessage(
-    activeFilter === 'all'
-      ? 'Showing all Pokémon!'
-      : `Showing ${capitalize(activeFilter)}-type Pokémon!`
+    activeFilter === 'all'       ? 'Showing all Pokémon!' :
+    activeFilter === 'favorites' ? `You have ${getFavorites().length} favorite Pokémon!` :
+    `Showing ${capitalize(activeFilter)}-type Pokémon!`
   );
 });
 
 //Load More button
-loadMoreBtn.addEventListener('click', () => fetchPokemons());
+loadMoreBtn.addEventListener('click', () => {
+  playClick();
+  fetchPokemons();
+});
+
+//RANDOM open a random Pokémon between 1–898 
+randomBtn.addEventListener('click', () => {
+  const id = randomBetween(1, 898);
+  playClick();
+  doBattleFlash();
+  setTimeout(() => openModal(id), 150);
+  showOakMessage('A wild Pokémon appears! 🎲');
+});
 
 //close with the ✕ button
-modalClose.addEventListener('click', closeModal);
+modalClose.addEventListener('click', () => {
+  playClick();
+  closeModal();
+});
 
 //close by clicking the dark backdrop
-modalOverlay.addEventListener('click', (event) => {
-  if (event.target === modalOverlay) closeModal();
+modalOverlay.addEventListener('click', (e) => {
+  if (e.target === modalOverlay) closeModal();
+});
+
+//FAVORITE  
+modalFavBtn.addEventListener('click', () => {
+  if (currentModalId === null) return;
+  playClick();
+  toggleFavorite(currentModalId);
+  // Also rebuild the filter pills (Favorites tab may appear/disappear)
+  renderTypeFilters();
+});
+ 
+//SHINY 
+shinyBtn.addEventListener('click', () => {
+  playClick();
+  toggleShiny();
+});
+ 
+//IMAGE click 
+document.getElementById('modal-img').addEventListener('click', () => {
+  if (currentModalId === null) return;
+  playClick();
+  toggleShiny();
 });
 
 //Previous Pokémon button
 prevBtn.addEventListener('click', () => {
   if (currentModalId > 1) {
+    playClick();
     doBattleFlash();
     setTimeout(() => openModal(currentModalId - 1), 150);
   }
@@ -631,6 +693,7 @@ prevBtn.addEventListener('click', () => {
 
 //Next Pokémon button
 nextBtn.addEventListener('click', () => {
+  playClick();
   doBattleFlash();
   setTimeout(() => openModal(currentModalId + 1), 150);
 });
@@ -638,6 +701,7 @@ nextBtn.addEventListener('click', () => {
 //tab switching (Info / Stats / Moves)
 document.querySelectorAll('.tab-btn').forEach(btn => {
   btn.addEventListener('click', () => {
+    playClick();
     document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
     btn.classList.add('active');
     document.querySelectorAll('.tab-panel').forEach(p => p.classList.add('hidden'));
@@ -646,12 +710,32 @@ document.querySelectorAll('.tab-btn').forEach(btn => {
 });
 
 //Keyboard shortcuts
-document.addEventListener('keydown', (event) => {
-  // Escape: close the modal
-  if (event.key === 'Escape') {
-    closeModal();
+document.addEventListener('keydown', (e) => {
+  if (e.key === 'Escape') closeModal();
+  if (currentModalId !== null) {
+    if (e.key === 'ArrowLeft' && currentModalId > 1) {
+      doBattleFlash();
+      setTimeout(() => openModal(currentModalId - 1), 150);
+    }
+    if (e.key === 'ArrowRight') {
+      doBattleFlash();
+      setTimeout(() => openModal(currentModalId + 1), 150);
+    }
   }
+});
  
+// --- SCROLL-TO-TOP button: show after scrolling 300px, hide otherwise ---
+window.addEventListener('scroll', () => {
+  if (window.scrollY > 300) {
+    scrollTopBtn.classList.add('visible');
+  } else {
+    scrollTopBtn.classList.remove('visible');
+  }
+});
+scrollTopBtn.addEventListener('click', () => {
+  window.scrollTo({ top: 0, behavior: 'smooth' });
+});
+
   // Arrow keys: navigate Pokémon while the modal is open
   if (currentModalId !== null) {
     if (event.key === 'ArrowLeft' && currentModalId > 1) {
@@ -663,4 +747,3 @@ document.addEventListener('keydown', (event) => {
       setTimeout(() => openModal(currentModalId + 1), 150);
     }
   }
-});
