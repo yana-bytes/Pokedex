@@ -152,6 +152,90 @@ function getStatColor(value) {
 }
 
 /* ------------------------------------------------
+   FAVORITES 
+------------------------------------------------ */
+
+//Load the saved list from localStorage 
+function getFavorites() {
+  const stored = localStorage.getItem('pokedex-favorites');
+  return stored ? JSON.parse(stored) : [];
+}
+ 
+//Save the updated list back to localStorage
+function saveFavorites(favs) {
+  localStorage.setItem('pokedex-favorites', JSON.stringify(favs));
+}
+ 
+//Returns true if the given Pokémon ID is in the favorites list.
+function isFavorite(pokemonId) {
+  return getFavorites().includes(pokemonId);
+}
+ 
+//Add or remove a Pokémon from favorites, then refresh the UI.
+function toggleFavorite(pokemonId) {
+  let favs = getFavorites();
+ 
+  if (favs.includes(pokemonId)) {
+    // It's already a favorite → remove it
+    favs = favs.filter(id => id !== pokemonId);
+  } else {
+    // Not yet a favorite → add it
+    favs.push(pokemonId);
+  }
+ 
+  saveFavorites(favs);
+ 
+  //Refresh the card grid and the modal button to reflect the new state
+  renderCards();
+  updateModalFavBtn(pokemonId);
+}
+ 
+//Updates the heart button inside the modal to show the current favorite state.
+function updateModalFavBtn(pokemonId) {
+  const favIcon  = document.getElementById('modal-fav-icon');
+  const favLabel = document.getElementById('modal-fav-label');
+ 
+  if (isFavorite(pokemonId)) {
+    modalFavBtn.classList.add('is-fav');
+    favIcon.textContent  = '❤️';
+    favLabel.textContent = 'Favorited!';
+  } else {
+    modalFavBtn.classList.remove('is-fav');
+    favIcon.textContent  = '🤍';
+    favLabel.textContent = 'Add to Favorites';
+  }
+}
+
+/* ------------------------------------------------
+   SOUND
+------------------------------------------------ */
+function playClick() {
+  const ctx  = new AudioContext();
+  //An oscillator generates a simple tone.
+  const osc  = ctx.createOscillator();
+  //A GainNode controls volume.
+  const gain = ctx.createGain();
+ 
+  osc.connect(gain);
+  gain.connect(ctx.destination);
+ 
+  osc.type      = 'square'; 
+  osc.frequency.value = 880; 
+ 
+  //Fade the volume out quickly 
+  gain.gain.setValueAtTime(0.07, ctx.currentTime);
+  gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.08);
+ 
+  osc.start();
+  osc.stop(ctx.currentTime + 0.08);
+}
+
+/* ------------------------------------------------
+   Used the official PokéAPI (https://pokeapi.co/) to get Pokémon information.
+------------------------------------------------ */
+
+
+/* ------------------------------------------------
    Used the official PokéAPI (https://pokeapi.co/) to get Pokémon information.
 ------------------------------------------------ */
 
@@ -213,12 +297,20 @@ async function fetchPokemons() {
 function renderCards() {
   const searchTerm = searchInput.value.toLowerCase().trim();
   const sortBy     = sortSelect.value;
+  const favs       = getFavorites();
 
   // Filter by search term and active type
   let filtered = allPokemons.filter(pokemon => {
-    const matchesSearch = pokemon.name.includes(searchTerm) || String(pokemon.id).includes(searchTerm);
-    const types = pokemon.types.map(t => t.type.name);
-    const matchesType = activeFilter === 'all' || types.includes(activeFilter);
+    const matchesSearch =
+      pokemon.name.includes(searchTerm) ||
+      String(pokemon.id).includes(searchTerm);
+ 
+    const types       = pokemon.types.map(t => t.type.name);
+    const matchesType =
+      activeFilter === 'all'       ? true :
+      activeFilter === 'favorites' ? favs.includes(pokemon.id) :
+      types.includes(activeFilter);
+ 
     return matchesSearch && matchesType;
   });
 
@@ -244,9 +336,14 @@ function renderCards() {
 
     const primaryType = pokemon.types[0].type.name;
     const stripeColor = TYPE_COLORS[primaryType] || '#888';
+    card.style.background =
+      `linear-gradient(145deg, ${typeColor}22 0%, var(--card-bg) 60%)`;
+
     const typeBadgesHTML = pokemon.types
       .map(t => `<span class="type-badge type-${t.type.name}">${t.type.name}</span>`)
       .join('');
+
+    const isFav = favs.includes(pokemon.id);
 
     card.innerHTML = `
       <div class="card-type-stripe" style="background:${stripeColor}"></div>
@@ -256,12 +353,20 @@ function renderCards() {
         src="${getSpriteUrl(pokemon.id)}"
         alt="${pokemon.name}"
         loading="lazy"
-        onerror="this.src='https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/${pokemon.id}.png'"
+        //In renderCards(), update the card img tag
+        onerror="this.onerror=null; this.src='https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/${pokemon.id}.png'"
       />
       <div class="card-id">#${padId(pokemon.id)}</div>
       <div class="card-name">${capitalize(pokemon.name)}</div>
       <div class="types-row">${typeBadgesHTML}</div>
     `;
+
+    // Clicking the heart button toggles favorite
+    card.querySelector('.fav-btn').addEventListener('click', (e) => {
+      e.stopPropagation(); // prevent the card click from firing
+      playClick();
+      toggleFavorite(pokemon.id);
+    });
 
     card.addEventListener('click', () => {
       doBattleFlash();
