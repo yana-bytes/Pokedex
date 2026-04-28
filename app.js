@@ -1,4 +1,4 @@
-// app.js — Pokédex 
+// app.js — Pokédex
 // Author: Joanalyn Cadampog
 
 /* ------------------------------------------------
@@ -26,7 +26,6 @@ const TYPE_WEAKNESSES = {
   fairy:    ['poison', 'steel'],
 };
 
-// Used for card stripes and the glow behind the modal image.
 const TYPE_COLORS = {
   normal:   '#9099A1',
   fire:     '#e25822',
@@ -58,14 +57,17 @@ const OAK_MESSAGES = [
 ];
 
 /* ------------------------------------------------
-   STATE: Variables that track what the app is doing
+   STATE
 ------------------------------------------------ */
-let allPokemons    = [];    // every Pokémon loaded so far
-let currentOffset  = 0;    
-let currentModalId = null; // ID of the Pokémon in the open modal
-let activeFilter   = 'all'; // current type filter
+let allPokemons    = [];
+let currentOffset  = 0;
+let currentModalId = null;
+let activeFilter   = 'all';
+let isShiny        = false;
 const PAGE_SIZE    = 10;
-const seenTypes    = new Set(); // unique types we've encountered
+const seenTypes    = new Set();
+let searchResults  = null;   // null = use allPokemons; array = API search results
+let searchDebounce = null;
 
 /* ------------------------------------------------
    DOM REFERENCES
@@ -89,12 +91,14 @@ const modalClose   = document.getElementById('modal-close');
 const prevBtn      = document.getElementById('prev-btn');
 const nextBtn      = document.getElementById('next-btn');
 const battleFlash  = document.getElementById('battle-flash');
+const randomBtn    = document.getElementById('random-btn');
+const shinyBtn     = document.getElementById('shiny-btn');
+const modalFavBtn  = document.getElementById('modal-fav-btn');
+const scrollTopBtn = document.getElementById('scroll-top-btn');
 
 /* ------------------------------------------------
-   HELPER FUNCTIONS
+   HELPERS
 ------------------------------------------------ */
-
-// Pad an ID to 3 digits: 1 → "001", 25 → "025"
 function padId(id) {
   return String(id).padStart(3, '0');
 }
@@ -103,12 +107,15 @@ function getSpriteUrl(id) {
   return `https://assets.pokemon.com/assets/cms2/img/pokedex/full/${padId(id)}.png`;
 }
 
+function getShinyUrl(id) {
+  return `https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/shiny/${id}.png`;
+}
+
 function capitalize(str) {
   if (!str) return '';
   return str.charAt(0).toUpperCase() + str.slice(1);
 }
 
-// Get all weakness types for a given array of type names
 function getWeaknesses(typeNames) {
   const weakSet = new Set();
   typeNames.forEach(type => {
@@ -117,7 +124,6 @@ function getWeaknesses(typeNames) {
   return [...weakSet];
 }
 
-// Create a colored <span> type badge element
 function makeTypeBadge(typeName) {
   const span = document.createElement('span');
   span.className = `type-badge type-${typeName}`;
@@ -128,7 +134,6 @@ function makeTypeBadge(typeName) {
 function showOakMessage(message) {
   oakText.textContent = '';
   let index = 0;
-
   const interval = setInterval(() => {
     oakText.textContent += message[index];
     index++;
@@ -136,73 +141,67 @@ function showOakMessage(message) {
   }, 22);
 }
 
-// Trigger the white battle-flash screen animation
 function doBattleFlash() {
   battleFlash.classList.add('flash');
   setTimeout(() => battleFlash.classList.remove('flash'), 500);
 }
 
-// Pick a color for a stat bar based on its value
+function randomBetween(min, max) {
+  return Math.floor(Math.random() * (max - min + 1)) + min;
+}
+
 function getStatColor(value) {
-  if (value >= 100) return '#4CAF50'; // green  — excellent
-  if (value >= 70)  return '#8BC34A'; // light green — good
-  if (value >= 50)  return '#FFC107'; // yellow — average
-  if (value >= 30)  return '#FF9800'; // orange — below average
-  return '#F44336';                   // red    — very low
+  if (value >= 100) return '#4CAF50';
+  if (value >= 70)  return '#8BC34A';
+  if (value >= 50)  return '#FFC107';
+  if (value >= 30)  return '#FF9800';
+  return '#F44336';
 }
 
 /* ------------------------------------------------
-   FAVORITES 
+   FAVORITES
 ------------------------------------------------ */
-
-//Load the saved list from localStorage 
 function getFavorites() {
   const stored = localStorage.getItem('pokedex-favorites');
   return stored ? JSON.parse(stored) : [];
 }
- 
-//Save the updated list back to localStorage
+
 function saveFavorites(favs) {
   localStorage.setItem('pokedex-favorites', JSON.stringify(favs));
 }
- 
-//Returns true if the given Pokémon ID is in the favorites list.
+
 function isFavorite(pokemonId) {
   return getFavorites().includes(pokemonId);
 }
- 
-//Add or remove a Pokémon from favorites, then refresh the UI.
+
 function toggleFavorite(pokemonId) {
   let favs = getFavorites();
- 
   if (favs.includes(pokemonId)) {
-    // It's already a favorite → remove it
     favs = favs.filter(id => id !== pokemonId);
   } else {
-    // Not yet a favorite → add it
     favs.push(pokemonId);
   }
- 
   saveFavorites(favs);
- 
-  //Refresh the card grid and the modal button to reflect the new state
   renderCards();
   updateModalFavBtn(pokemonId);
+  renderTypeFilters();
 }
- 
-//Updates the heart button inside the modal to show the current favorite state.
+
+// FIX: was crashing because modal-fav-icon / modal-fav-label didn't exist in HTML.
+// They now exist, so this is safe. Guard added for extra safety.
 function updateModalFavBtn(pokemonId) {
+  if (!modalFavBtn) return;
   const favIcon  = document.getElementById('modal-fav-icon');
   const favLabel = document.getElementById('modal-fav-label');
- 
+
   if (isFavorite(pokemonId)) {
     modalFavBtn.classList.add('is-fav');
-    favIcon.textContent  = '❤️';
-    favLabel.textContent = 'Favorited!';
+    if (favIcon)  favIcon.textContent  = '❤️';
+    if (favLabel) favLabel.textContent = 'Favorited!';
   } else {
     modalFavBtn.classList.remove('is-fav');
-    favIcon.textContent  = '🤍';
-    favLabel.textContent = 'Add to Favorites';
+    if (favIcon)  favIcon.textContent  = '🤍';
+    if (favLabel) favLabel.textContent = 'Add to Favorites';
   }
 }
 
@@ -210,72 +209,49 @@ function updateModalFavBtn(pokemonId) {
    SOUND
 ------------------------------------------------ */
 function playClick() {
-  const ctx  = new AudioContext();
-  //An oscillator generates a simple tone.
-  const osc  = ctx.createOscillator();
-  //A GainNode controls volume.
-  const gain = ctx.createGain();
- 
-  osc.connect(gain);
-  gain.connect(ctx.destination);
- 
-  osc.type      = 'square'; 
-  osc.frequency.value = 880; 
- 
-  //Fade the volume out quickly 
-  gain.gain.setValueAtTime(0.07, ctx.currentTime);
-  gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.08);
- 
-  osc.start();
-  osc.stop(ctx.currentTime + 0.08);
+  try {
+    const ctx  = new AudioContext();
+    const osc  = ctx.createOscillator();
+    const gain = ctx.createGain();
+    osc.connect(gain);
+    gain.connect(ctx.destination);
+    osc.type = 'square';
+    osc.frequency.value = 880;
+    gain.gain.setValueAtTime(0.07, ctx.currentTime);
+    gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.08);
+    osc.start();
+    osc.stop(ctx.currentTime + 0.08);
+  } catch (e) { /* audio not critical */ }
 }
 
 /* ------------------------------------------------
-   Used the official PokéAPI (https://pokeapi.co/) to get Pokémon information.
+   FETCH POKÉMON
 ------------------------------------------------ */
-
-
-/* ------------------------------------------------
-   Used the official PokéAPI (https://pokeapi.co/) to get Pokémon information.
------------------------------------------------- */
-
 async function fetchPokemons() {
   loadingMsg.classList.remove('hidden');
   loadMoreArea.style.display = 'none';
 
   try {
-    // Step 1: Get a list of Pokémon names + their individual URLs
     const listRes  = await fetch(`https://pokeapi.co/api/v2/pokemon?limit=${PAGE_SIZE}&offset=${currentOffset}`);
     const listData = await listRes.json();
 
-    // Step 2: Fetch full details for all of them at the same time
     const details = await Promise.all(
       listData.results.map(p => fetch(p.url).then(r => r.json()))
     );
 
-    // Step 3: Add to master list and advance the offset
     allPokemons = allPokemons.concat(details);
     currentOffset += PAGE_SIZE;
 
-    // Step 4: Record any new types we've seen
     details.forEach(pokemon => {
       pokemon.types.forEach(t => seenTypes.add(t.type.name));
     });
 
-    // Step 5: Rebuild the type filter buttons
     renderTypeFilters();
-
-    // Step 6: Rebuild the card grid 
     renderCards();
-
-     // Step 7: Update the "X seen" counter in the header
     caughtCount.textContent = allPokemons.length;
-
-    // Step 8: fun message from me 
     showOakMessage(OAK_MESSAGES[0].replace('{count}', allPokemons.length));
 
   } catch (error) {
-    // Something went wrong (e.g. no internet, API down)
     console.error('Error loading Pokémon:', error);
     grid.innerHTML = `
       <div style="grid-column:1/-1; text-align:center; padding:40px; color:#ff6b6b;">
@@ -285,59 +261,67 @@ async function fetchPokemons() {
     `;
   }
 
-// Always hide the spinner and restore the Load More button
   loadingMsg.classList.add('hidden');
   loadMoreArea.style.display = 'block';
 }
 
 /* ------------------------------------------------
-   RENDER CARDS: Apply search/sort/filter and draw the grid
+   RENDER CARDS
 ------------------------------------------------ */
-
+/* ------------------------------------------------
+   RENDER CARDS
+   Uses `searchResults` when set (API search),
+   otherwise filters `allPokemons` locally.
+------------------------------------------------ */
 function renderCards() {
   const searchTerm = searchInput.value.toLowerCase().trim();
   const sortBy     = sortSelect.value;
   const favs       = getFavorites();
 
-  // Filter by search term and active type
-  let filtered = allPokemons.filter(pokemon => {
+  // If we have API search results, show them directly (skip local filter)
+  let pool = searchResults !== null ? searchResults : allPokemons;
+
+  let filtered = pool.filter(pokemon => {
+    if (searchResults !== null) return true; // already searched via API
+
     const matchesSearch =
       pokemon.name.includes(searchTerm) ||
       String(pokemon.id).includes(searchTerm);
- 
-    const types       = pokemon.types.map(t => t.type.name);
+
+    const types = pokemon.types.map(t => t.type.name);
     const matchesType =
       activeFilter === 'all'       ? true :
       activeFilter === 'favorites' ? favs.includes(pokemon.id) :
       types.includes(activeFilter);
- 
+
     return matchesSearch && matchesType;
   });
 
-  // Sort the results
   filtered.sort((a, b) =>
     sortBy === 'name' ? a.name.localeCompare(b.name) : a.id - b.id
   );
 
   grid.innerHTML = '';
 
- // Show "no results" message if nothing matched
+  if (filtered.length === 0 && searchResults !== null) {
+    noResults.classList.remove('hidden');
+    return;
+  }
   if (filtered.length === 0) {
     noResults.classList.remove('hidden');
     return;
   }
   noResults.classList.add('hidden');
 
-  // Build a card for each Pokémon
   filtered.forEach((pokemon, index) => {
     const card = document.createElement('div');
     card.className = 'pokemon-card';
     card.style.animationDelay = `${index * 40}ms`;
 
     const primaryType = pokemon.types[0].type.name;
-    const stripeColor = TYPE_COLORS[primaryType] || '#888';
-    card.style.background =
-      `linear-gradient(145deg, ${typeColor}22 0%, var(--card-bg) 60%)`;
+    const typeColor   = TYPE_COLORS[primaryType] || '#888';
+
+    card.style.setProperty('--type-color', typeColor);
 
     const typeBadgesHTML = pokemon.types
       .map(t => `<span class="type-badge type-${t.type.name}">${t.type.name}</span>`)
@@ -346,24 +330,29 @@ function renderCards() {
     const isFav = favs.includes(pokemon.id);
 
     card.innerHTML = `
-      <div class="card-type-stripe" style="background:${stripeColor}"></div>
+      <div class="card-shine-stripe"></div>
+      <div class="card-type-stripe" style="background: linear-gradient(90deg, ${typeColor}, ${typeColor}99)"></div>
       <div class="card-bg-id">${padId(pokemon.id)}</div>
-      <img
-        class="card-img"
-        src="${getSpriteUrl(pokemon.id)}"
-        alt="${pokemon.name}"
-        loading="lazy"
-        //In renderCards(), update the card img tag
-        onerror="this.onerror=null; this.src='https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/${pokemon.id}.png'"
-      />
-      <div class="card-id">#${padId(pokemon.id)}</div>
-      <div class="card-name">${capitalize(pokemon.name)}</div>
-      <div class="types-row">${typeBadgesHTML}</div>
+      <button class="fav-btn ${isFav ? 'is-fav' : ''}" title="${isFav ? 'Remove from favorites' : 'Add to favorites'}">${isFav ? '❤️' : '🤍'}</button>
+      <div class="card-img-wrap">
+        <div class="card-img-glow" style="background: radial-gradient(circle, ${typeColor}55 0%, transparent 70%)"></div>
+        <img
+          class="card-img"
+          src="${getSpriteUrl(pokemon.id)}"
+          alt="${pokemon.name}"
+          loading="lazy"
+          onerror="this.onerror=null; this.src='https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/${pokemon.id}.png'"
+        />
+      </div>
+      <div class="card-footer">
+        <div class="card-id">#${padId(pokemon.id)}</div>
+        <div class="card-name">${capitalize(pokemon.name)}</div>
+        <div class="types-row">${typeBadgesHTML}</div>
+      </div>
     `;
 
-    // Clicking the heart button toggles favorite
     card.querySelector('.fav-btn').addEventListener('click', (e) => {
-      e.stopPropagation(); // prevent the card click from firing
+      e.stopPropagation();
       playClick();
       toggleFavorite(pokemon.id);
     });
@@ -378,19 +367,24 @@ function renderCards() {
 }
 
 /* ------------------------------------------------
-   RENDER TYPE FILTERS: Rebuild the filter button bar
+   RENDER TYPE FILTERS (with Favorites tab)
 ------------------------------------------------ */
-
 function renderTypeFilters() {
-  //Always start with the All button
+  const favCount = getFavorites().length;
+
+  // All button
   typeFilters.innerHTML = `
-    <button
-      class="type-filter-btn ${activeFilter === 'all' ? 'active' : ''}"
-      data-type="all"
-    >All</button>
+    <button class="type-filter-btn ${activeFilter === 'all' ? 'active' : ''}" data-type="all">All</button>
   `;
- 
-  //Sort types alphabetically, then add a button for each
+
+  // Favorites tab — always shown
+  const favBtn = document.createElement('button');
+  favBtn.className = 'type-filter-btn' + (activeFilter === 'favorites' ? ' active' : '');
+  favBtn.dataset.type = 'favorites';
+  favBtn.textContent = `❤️ Favorites${favCount > 0 ? ` (${favCount})` : ''}`;
+  typeFilters.appendChild(favBtn);
+
+  // Type buttons
   [...seenTypes].sort().forEach(typeName => {
     const btn = document.createElement('button');
     btn.className = 'type-filter-btn' + (activeFilter === typeName ? ' active' : '');
@@ -401,13 +395,18 @@ function renderTypeFilters() {
 }
 
 /* ------------------------------------------------
-   MODAL: Open the detail popup for a given Pokémon ID
+   MODAL
 ------------------------------------------------ */
-
 async function openModal(pokemonId) {
   currentModalId = pokemonId;
+  isShiny = false;
 
-  // Show the modal immediately with placeholder content
+  // Reset shiny button
+  if (shinyBtn) {
+    shinyBtn.classList.remove('shiny-on');
+    document.getElementById('shiny-label').textContent = 'Shiny';
+  }
+
   modalOverlay.classList.remove('hidden');
   document.getElementById('modal-name').textContent     = 'Loading...';
   document.getElementById('modal-id-chip').textContent  = `#${padId(pokemonId)}`;
@@ -417,46 +416,47 @@ async function openModal(pokemonId) {
   document.getElementById('modal-weaknesses').innerHTML = '';
   document.getElementById('modal-stats').innerHTML      = '';
   document.getElementById('modal-moves').innerHTML      = '';
-  
-  // Disable nav buttons until data loads
+
+  // Reset tabs to Info
+  document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+  document.querySelector('.tab-btn[data-tab="info"]').classList.add('active');
+  document.querySelectorAll('.tab-panel').forEach(p => p.classList.add('hidden'));
+  document.getElementById('tab-info').classList.remove('hidden');
+
   prevBtn.disabled = true;
   nextBtn.disabled = true;
 
+  // Update fav button immediately
+  updateModalFavBtn(pokemonId);
+
   try {
-    // Fetch Pokémon data and species data at the same time
     const [pokemonData, speciesData] = await Promise.all([
       fetch(`https://pokeapi.co/api/v2/pokemon/${pokemonId}`).then(r => r.json()),
       fetch(`https://pokeapi.co/api/v2/pokemon-species/${pokemonId}`).then(r => r.json()),
     ]);
 
-    // English category (e.g. "Seed Pokémon")
     const genusObj   = speciesData.genera?.find(g => g.language.name === 'en');
     const category   = genusObj ? genusObj.genus : 'Unknown';
 
-    // English Pokédex description
     const flavorEntry = speciesData.flavor_text_entries?.find(e => e.language.name === 'en');
     const description = flavorEntry
       ? flavorEntry.flavor_text.replace(/\f|\n/g, ' ')
       : 'No description available.';
 
-    // Types, weaknesses, and colors
-    const typeNames   = pokemonData.types.map(t => t.type.name);
-    const weaknesses  = getWeaknesses(typeNames);
-    const bgColor     = TYPE_COLORS[typeNames[0]] || '#888';
+    const typeNames  = pokemonData.types.map(t => t.type.name);
+    const weaknesses = getWeaknesses(typeNames);
+    const bgColor    = TYPE_COLORS[typeNames[0]] || '#888';
 
-    // Fill hero section
     document.getElementById('modal-hero').style.background =
       `linear-gradient(135deg, ${bgColor}33 0%, transparent 70%)`;
     document.getElementById('modal-bg-circle').style.background = bgColor;
     document.getElementById('modal-name').textContent    = capitalize(pokemonData.name);
     document.getElementById('modal-id-chip').textContent = `#${padId(pokemonData.id)}`;
 
-    // Fill type badges
     const typesDiv = document.getElementById('modal-types');
     typesDiv.innerHTML = '';
     typeNames.forEach(t => typesDiv.appendChild(makeTypeBadge(t)));
 
-    // Fill info grid
     const infoGrid = document.getElementById('modal-info-grid');
     infoGrid.innerHTML = '';
     const infoItems = [
@@ -482,7 +482,6 @@ async function openModal(pokemonId) {
       infoGrid.appendChild(cell);
     });
 
-    // Fill weaknesses
     const weakDiv = document.getElementById('modal-weaknesses');
     weakDiv.innerHTML = '';
     if (weaknesses.length === 0) {
@@ -491,7 +490,6 @@ async function openModal(pokemonId) {
       weaknesses.forEach(w => weakDiv.appendChild(makeTypeBadge(w)));
     }
 
-    // Fill stat bars
     const statsDiv = document.getElementById('modal-stats');
     statsDiv.innerHTML = '';
     pokemonData.stats.forEach(s => {
@@ -515,7 +513,6 @@ async function openModal(pokemonId) {
       });
     });
 
-    // Fill moves (first 10)
     const movesDiv = document.getElementById('modal-moves');
     movesDiv.innerHTML = '';
     pokemonData.moves.slice(0, 10).forEach((m, i) => {
@@ -526,7 +523,6 @@ async function openModal(pokemonId) {
       movesDiv.appendChild(chip);
     });
 
-    // Set up Prev / Next buttons
     prevBtn.disabled = pokemonId <= 1;
     nextBtn.disabled = false;
     updateNavButtonNames(pokemonId);
@@ -539,7 +535,6 @@ async function openModal(pokemonId) {
   }
 }
 
-// Update the Previous / Next button labels with the neighbouring Pokémon names
 function updateNavButtonNames(currentId) {
   document.getElementById('prev-name').textContent = 'Previous';
   document.getElementById('next-name').textContent = 'Next';
@@ -556,12 +551,10 @@ function updateNavButtonNames(currentId) {
   if (next) document.getElementById('next-name').textContent = capitalize(next.name);
 }
 
-
-// Close the modal.
 function closeModal() {
   modalOverlay.classList.add('hidden');
   currentModalId = null;
-  isShiny        = false;
+  isShiny = false;
 }
 
 /* ------------------------------------------------
@@ -569,59 +562,144 @@ function closeModal() {
 ------------------------------------------------ */
 function toggleShiny() {
   const img = document.getElementById('modal-img');
-  isShiny = !isShiny; 
- 
+  isShiny = !isShiny;
+
   if (isShiny) {
     img.src = getShinyUrl(currentModalId);
     shinyBtn.classList.add('shiny-on');
-    shinyBtn.textContent = '✨ Shiny ON';
+    document.getElementById('shiny-label').textContent = 'Shiny ON';
     showOakMessage('Whoa! A shiny Pokémon! How rare!');
   } else {
     img.src = getSpriteUrl(currentModalId);
     shinyBtn.classList.remove('shiny-on');
-    shinyBtn.textContent = '✨ Shiny';
+    document.getElementById('shiny-label').textContent = 'Shiny';
   }
 }
 
 /* ------------------------------------------------
-   EVENT LISTENERS: Connect UI interactions to functions
+   EVENT LISTENERS
 ------------------------------------------------ */
 
-//PRESS START button
+// PRESS START
 startBtn.addEventListener('click', () => {
   doBattleFlash();
   introScreen.classList.add('fade-out');
   setTimeout(() => {
     introScreen.style.display = 'none';
     appDiv.classList.remove('hidden');
-    fetchPokemons(); // load the first 10 Pokémon
+    fetchPokemons();
   }, 600);
 });
 
-// Search: re-render as the user types
+// Search — local filter first, then API lookup for unloaded Pokémon
 searchInput.addEventListener('input', () => {
-  clearSearch.style.display = searchInput.value ? 'block' : 'none';
-  renderCards();
+  const term = searchInput.value.trim();
+  clearSearch.style.display = term ? 'block' : 'none';
+
+  clearTimeout(searchDebounce);
+
+  if (!term) {
+    // Cleared — go back to normal browsing
+    searchResults = null;
+    noResults.classList.add('hidden');
+    renderCards();
+    return;
+  }
+
+  // Check if any locally loaded Pokémon match
+  const localHits = allPokemons.filter(p =>
+    p.name.toLowerCase().includes(term.toLowerCase()) ||
+    String(p.id).includes(term)
+  );
+
+  if (localHits.length > 0) {
+    // Enough local results — show immediately, no API call needed
+    searchResults = null;
+    renderCards();
+    return;
+  }
+
+  // No local hits → debounce then hit the API
+  showOakMessage('Searching the Pokédex...');
+  searchDebounce = setTimeout(() => searchPokemonAPI(term), 420);
 });
 
-// Clear (✕) button: reset the search
+async function searchPokemonAPI(term) {
+  const query = term.toLowerCase().trim();
+
+  // Detect numeric search (exact ID lookup) vs name search
+  const isNumeric = /^\d+$/.test(query);
+
+  try {
+    let results = [];
+
+    if (isNumeric) {
+      // Exact ID fetch
+      const id = parseInt(query, 10);
+      if (id >= 1 && id <= 1010) {
+        const res = await fetch(`https://pokeapi.co/api/v2/pokemon/${id}`);
+        if (res.ok) results = [await res.json()];
+      }
+    } else {
+      // Name fetch — PokéAPI supports direct name lookup
+      const res = await fetch(`https://pokeapi.co/api/v2/pokemon/${query}`);
+      if (res.ok) {
+        results = [await res.json()];
+      } else {
+        // Partial name: fetch the full list (lightweight — only names+urls)
+        // and find all matches, then fetch details for up to 8
+        const listRes = await fetch('https://pokeapi.co/api/v2/pokemon?limit=1010&offset=0');
+        const listData = await listRes.json();
+        const matches = listData.results.filter(p => p.name.includes(query)).slice(0, 8);
+        results = await Promise.all(matches.map(p => fetch(p.url).then(r => r.json())));
+      }
+    }
+
+    // Merge any new results into allPokemons cache
+    results.forEach(p => {
+      if (!allPokemons.find(a => a.id === p.id)) {
+        allPokemons.push(p);
+        p.types.forEach(t => seenTypes.add(t.type.name));
+      }
+    });
+
+    searchResults = results;
+    renderCards();
+
+    if (results.length === 0) {
+      noResults.classList.remove('hidden');
+      showOakMessage("Hmm... that Pokémon wasn't found in any region!");
+    } else {
+      noResults.classList.add('hidden');
+      showOakMessage(`Found ${results.length} Pokémon matching "${term}"!`);
+    }
+
+  } catch (err) {
+    console.error('Search API error:', err);
+    searchResults = [];
+    noResults.classList.remove('hidden');
+    showOakMessage("Couldn't reach the Pokédex servers. Try again!");
+  }
+}
+
+// Clear search
 clearSearch.addEventListener('click', () => {
   searchInput.value = '';
   clearSearch.style.display = 'none';
+  searchResults = null;
   searchInput.focus();
   renderCards();
 });
 
-// Sort dropdown: re-render when changed
+// Sort
 sortSelect.addEventListener('change', renderCards);
 
-// Type filter buttons: filter by the clicked type
+// Type filter buttons
 typeFilters.addEventListener('click', (event) => {
   const btn = event.target.closest('.type-filter-btn');
   if (!btn) return;
 
   activeFilter = btn.dataset.type;
-
   document.querySelectorAll('.type-filter-btn').forEach(b => b.classList.remove('active'));
   btn.classList.add('active');
 
@@ -634,55 +712,60 @@ typeFilters.addEventListener('click', (event) => {
   );
 });
 
-//Load More button
+// Load More
 loadMoreBtn.addEventListener('click', () => {
   playClick();
   fetchPokemons();
 });
 
-//RANDOM open a random Pokémon between 1–898 
-randomBtn.addEventListener('click', () => {
-  const id = randomBetween(1, 898);
-  playClick();
-  doBattleFlash();
-  setTimeout(() => openModal(id), 150);
-  showOakMessage('A wild Pokémon appears! 🎲');
-});
+// Random
+if (randomBtn) {
+  randomBtn.addEventListener('click', () => {
+    const id = randomBetween(1, 898);
+    playClick();
+    doBattleFlash();
+    setTimeout(() => openModal(id), 150);
+    showOakMessage('A wild Pokémon appears! 🎲');
+  });
+}
 
-//close with the ✕ button
+// Modal close button
 modalClose.addEventListener('click', () => {
   playClick();
   closeModal();
 });
 
-//close by clicking the dark backdrop
+// Close on backdrop click
 modalOverlay.addEventListener('click', (e) => {
   if (e.target === modalOverlay) closeModal();
 });
 
-//FAVORITE  
-modalFavBtn.addEventListener('click', () => {
-  if (currentModalId === null) return;
-  playClick();
-  toggleFavorite(currentModalId);
-  // Also rebuild the filter pills (Favorites tab may appear/disappear)
-  renderTypeFilters();
-});
- 
-//SHINY 
-shinyBtn.addEventListener('click', () => {
-  playClick();
-  toggleShiny();
-});
- 
-//IMAGE click 
+// Favorite button in modal
+if (modalFavBtn) {
+  modalFavBtn.addEventListener('click', () => {
+    if (currentModalId === null) return;
+    playClick();
+    toggleFavorite(currentModalId);
+  });
+}
+
+// Shiny button
+if (shinyBtn) {
+  shinyBtn.addEventListener('click', () => {
+    if (currentModalId === null) return;
+    playClick();
+    toggleShiny();
+  });
+}
+
+// Click image to toggle shiny
 document.getElementById('modal-img').addEventListener('click', () => {
   if (currentModalId === null) return;
   playClick();
   toggleShiny();
 });
 
-//Previous Pokémon button
+// Prev / Next
 prevBtn.addEventListener('click', () => {
   if (currentModalId > 1) {
     playClick();
@@ -691,14 +774,13 @@ prevBtn.addEventListener('click', () => {
   }
 });
 
-//Next Pokémon button
 nextBtn.addEventListener('click', () => {
   playClick();
   doBattleFlash();
   setTimeout(() => openModal(currentModalId + 1), 150);
 });
 
-//tab switching (Info / Stats / Moves)
+// Tab switching
 document.querySelectorAll('.tab-btn').forEach(btn => {
   btn.addEventListener('click', () => {
     playClick();
@@ -709,7 +791,7 @@ document.querySelectorAll('.tab-btn').forEach(btn => {
   });
 });
 
-//Keyboard shortcuts
+// Keyboard shortcuts
 document.addEventListener('keydown', (e) => {
   if (e.key === 'Escape') closeModal();
   if (currentModalId !== null) {
@@ -723,27 +805,46 @@ document.addEventListener('keydown', (e) => {
     }
   }
 });
- 
-// --- SCROLL-TO-TOP button: show after scrolling 300px, hide otherwise ---
-window.addEventListener('scroll', () => {
-  if (window.scrollY > 300) {
-    scrollTopBtn.classList.add('visible');
-  } else {
-    scrollTopBtn.classList.remove('visible');
-  }
-});
-scrollTopBtn.addEventListener('click', () => {
-  window.scrollTo({ top: 0, behavior: 'smooth' });
+
+/* ------------------------------------------------
+   HOLOGRAPHIC SHIMMER — track cursor per card
+------------------------------------------------ */
+grid.addEventListener('mousemove', (e) => {
+  const card = e.target.closest('.pokemon-card');
+  if (!card) return;
+  const rect = card.getBoundingClientRect();
+  const x = ((e.clientX - rect.left) / rect.width)  * 100;
+  const y = ((e.clientY - rect.top)  / rect.height) * 100;
+  card.style.setProperty('--mx', `${x}%`);
+  card.style.setProperty('--my', `${y}%`);
+
+  // Subtle 3-D tilt toward cursor
+  const tiltX = ((y / 100) - 0.5) * 14;
+  const tiltY = ((x / 100) - 0.5) * -14;
+  card.style.transform = `perspective(700px) rotateX(${tiltX}deg) rotateY(${tiltY}deg) translateY(-6px) scale(1.03)`;
 });
 
-  // Arrow keys: navigate Pokémon while the modal is open
-  if (currentModalId !== null) {
-    if (event.key === 'ArrowLeft' && currentModalId > 1) {
-      doBattleFlash();
-      setTimeout(() => openModal(currentModalId - 1), 150);
-    }
-    if (event.key === 'ArrowRight') {
-      doBattleFlash();
-      setTimeout(() => openModal(currentModalId + 1), 150);
-    }
+grid.addEventListener('mouseover', (e) => {
+  const prev = grid.querySelector('.pokemon-card[data-hovered]');
+  const card  = e.target.closest('.pokemon-card');
+  if (prev && prev !== card) {
+    prev.style.transform = '';
+    prev.removeAttribute('data-hovered');
   }
+  if (card) card.setAttribute('data-hovered', '1');
+});
+
+grid.addEventListener('mouseleave', () => {
+  const hovered = grid.querySelector('.pokemon-card[data-hovered]');
+  if (hovered) { hovered.style.transform = ''; hovered.removeAttribute('data-hovered'); }
+}, true);
+
+// Scroll to top button
+if (scrollTopBtn) {
+  window.addEventListener('scroll', () => {
+    scrollTopBtn.classList.toggle('visible', window.scrollY > 300);
+  });
+  scrollTopBtn.addEventListener('click', () => {
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  });
+}
